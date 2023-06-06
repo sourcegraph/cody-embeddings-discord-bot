@@ -1,0 +1,4 @@
+discord.py
+requests
+asyncio
+urllib3==1.25.11
