@@ -2,6 +2,7 @@ import asyncio
 import discord
 from config import SG_TOKEN, DISCORD_TOKEN
 import requests
+from discord.ext.commands import Bot
 
 def send_graphql_request(repo_name):
     
@@ -11,7 +12,7 @@ def send_graphql_request(repo_name):
     mutation {{
       scheduleRepositoriesForEmbedding(
         repoNames: [
-          `${repo_name}`
+          `{repo_name}`
         ]
       ) {{
         alwaysNil
@@ -26,12 +27,12 @@ def send_graphql_request(repo_name):
         print("response : ", response.text)
 
 intents = discord.Intents.default()
-intents.message_content = True
+intents.messages = True
 
-bot = discord.Bot(intents=intents)
+bot = Bot(command_prefix = '$', intents=intents)
 
 
-@bot.slash_command(description="Create Embedding for Cody.")
+@bot.command(description="Create Embedding for Cody.")
 @discord.option("name", description="Enter the public GitHub repo.")
 async def embedding(ctx: discord.ApplicationContext, repo_name: str):
     try:
