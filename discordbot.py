@@ -23,12 +23,11 @@ def send_graphql_request(repo_name):
     repo_name = sanitize_repo_name(repo_name)
 
     url = "https://sourcegraph.com/.api/graphql"
-
     body = f"""
     mutation {{
       scheduleRepositoriesForEmbedding(
         repoNames: [
-          `{repo_name}`
+          "{repo_name}"
         ]
       ) {{
         alwaysNil
