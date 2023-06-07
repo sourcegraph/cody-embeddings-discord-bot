@@ -7,27 +7,27 @@ from discord.ext.commands import Bot
 import re
 
 
-def sanitize_repo_name(repo_name):
+def sanitize_repo_url(repo_url):
     allowed_chars = set(string.ascii_letters + string.digits + "./_-")
-    disallowed_chars = set(repo_name) - allowed_chars
+    disallowed_chars = set(repo_url) - allowed_chars
 
     for char in disallowed_chars:
-        repo_name = repo_name.replace(char, "")
+        repo_url = repo_url.replace(char, "")
 
-    return repo_name
+    return repo_url
 
 
-def send_graphql_request(repo_name):
+def send_graphql_request(repo_url):
 
-    # clean repo_name to prevent injection
-    repo_name = sanitize_repo_name(repo_name)
+    # clean repo_url to prevent injection
+    repo_url = sanitize_repo_url(repo_url)
 
     url = "https://sourcegraph.com/.api/graphql"
     body = f"""
     mutation {{
       scheduleRepositoriesForEmbedding(
         repoNames: [
-          "{repo_name}"
+          "{repo_url}"
         ]
       ) {{
         alwaysNil
@@ -50,10 +50,10 @@ bot = Bot(command_prefix="embeddings", intents=intents)
 
 @bot.slash_command(description="Create Embedding for Cody.")
 @discord.option("name", description="Enter the public GitHub repo.")
-async def embedding(ctx: discord.ApplicationContext, repo_name: str):
+async def embedding(ctx: discord.ApplicationContext, repo_url: str):
     try:
-        await ctx.respond(f"Processing {repo_name}") 
-        send_graphql_request(repo_name=re.sub(r"^(www\.|https://)(.*?)/?$", r"\2", repo_name)) 
+        await ctx.respond(f"Processing {repo_url}") 
+        send_graphql_request(repo_url=re.sub(r"^(www\.|https://)(.*?)/?$", r"\2", repo_url)) 
         await ctx.send(f"✅ Embedding processing!\nShould be ready in ~30 minutes.") 
     except asyncio.TimeoutError: await ctx.send("⚠️ Timed out, please try again!") 
     except Exception as e: await ctx.send(f"❌ Error occurred: {e}")
