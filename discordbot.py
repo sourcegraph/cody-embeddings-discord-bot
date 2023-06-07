@@ -4,6 +4,7 @@ import discord
 from config import SG_TOKEN, DISCORD_TOKEN
 import requests
 from discord.ext.commands import Bot
+import re
 
 
 def sanitize_repo_name(repo_name):
@@ -52,11 +53,10 @@ bot = Bot(command_prefix="$", intents=intents)
 @discord.option("name", description="Enter the public GitHub repo.")
 async def embedding(ctx: discord.ApplicationContext, repo_name: str):
     try:
-        await ctx.respond(f"Processing {repo_name}")
-        send_graphql_request(repo_name=repo_name.replace("https://", "").replace("www", "").rstrip("/"))
-        await ctx.send(f"✅ Embedding processing!\nShould be ready in ~30 minutes.")
-    except asyncio.TimeoutError:
-        await ctx.send("⚠️ Timed out, please try again!")
-
+        await ctx.respond(f"Processing {repo_name}") 
+        send_graphql_request(repo_name=re.sub(r"^(www\.|https://)(.*?)/?$", r"\2", repo_name)) 
+        await ctx.send(f"✅ Embedding processing!\nShould be ready in ~30 minutes.") 
+    except asyncio.TimeoutError: await ctx.send("⚠️ Timed out, please try again!") 
+    except Exception as e: await ctx.send(f"❌ Error occurred: {e}")
 
 bot.run(DISCORD_TOKEN)
