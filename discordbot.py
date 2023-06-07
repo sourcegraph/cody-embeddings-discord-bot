@@ -18,7 +18,8 @@ def send_graphql_request(repo_name):
         alwaysNil
       }}
     }}
-    """  
+    """
+    # print(body)  
     response = requests.post(url=url, json={"query": body}, headers={
         'Authorization': f'token {SG_TOKEN}' 
     })
@@ -29,10 +30,10 @@ def send_graphql_request(repo_name):
 intents = discord.Intents.default()
 intents.messages = True
 
-bot = Bot(command_prefix = '$', intents=intents)
+bot = Bot(command_prefix = 'embeddings', intents=intents)
 
 
-@bot.command(description="Create Embedding for Cody.")
+@bot.slash_command(description="Create Embedding for Cody.")
 @discord.option("name", description="Enter the public GitHub repo.")
 async def embedding(ctx: discord.ApplicationContext, repo_name: str):
     try:
