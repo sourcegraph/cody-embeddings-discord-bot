@@ -1,12 +1,12 @@
-FROM python:3.11-slim@sha256:7d28177da146154adb077f7d71e21fdb9a7696128a7353b7db4cbb40c6e2d0ac
+FROM cgr.dev/chainguard/python:3.11-dev@sha256:c7267ad0f84dd8b44fcea8962a0a97f44e719b703cf57321bff1576269a8043b
 
 COPY discordbot.py config.py requirements.txt . 
 
 RUN pip install -r requirements.txt
- 
+
 ENV HTTP_PORT=8080
 ENV HTTP_HOST=0.0.0.0
 
 EXPOSE 8080
 
-CMD ["python", "discordbot.py"]
+CMD ["discordbot.py"]
