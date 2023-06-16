@@ -9,4 +9,4 @@ ENV HTTP_HOST=0.0.0.0
 
 EXPOSE 8080
 
-ENTRYPOINT ["python", "discordbot.py"]
+CMD ["discordbot.py"]
