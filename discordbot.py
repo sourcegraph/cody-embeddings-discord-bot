@@ -1,3 +1,4 @@
+# TODO: Improve error handling when checking to validate a repo exists, when the code host is missing or malformed
 
 # TODO: GraphQL query for embeddingExists every 5 minutes, then tag the user that their embedding is ready
 # TODO: Check when the embeddings job is completed
@@ -90,6 +91,7 @@ def sanitize_repo_url(repo_url):
     # www.github.com/org/repo.git
     # www.github.com/org/repo.git@ref
 
+    initial_repo_url = repo_url
     sanitized_repo_url_messages = []
     subStringsToRemove = [
       "https://",
@@ -99,14 +101,14 @@ def sanitize_repo_url(repo_url):
       "git@",
     ]
 
+    # Remove all whitespaces
+    repo_url = regex.sub(r"\s+", "", repo_url, flags=regex.UNICODE)
+
     # Convert to lowercase
     # Don't need to warn the user about case
     repo_url = repo_url.lower()
 
-    # Remove all whitespaces
-    repo_url = regex.sub(r"\s+", "", repo_url, flags=regex.UNICODE)
-
-    # Loop through prefixesToRemove warn the user, and remove them
+    # Loop through subStringsToRemove warn the user, and remove them
     for subString in subStringsToRemove:
       if subString in repo_url:
         sanitized_repo_url_messages.append("Removed: " + subString)
@@ -122,32 +124,57 @@ def sanitize_repo_url(repo_url):
       sanitized_repo_url_messages.append("Removed: " + match + ", only the HEAD revision of the default branch is supported for embeddings at this time.")
       repo_url = repo_url.replace(match,"")
 
-    # Cleanup any invalid characters remaining
+    # Clean up any invalid characters remaining
+    # This defines the list of valid characters in a codehost/org/repo name
     allowed_chars = set(string.ascii_letters + string.digits + "./_-")
+    # This finds any characters in repo_url that are not allowed
     disallowed_chars = set(repo_url) - allowed_chars
     removed_chars = []
 
+    # If disallowed characters were found, remove them
     for char in disallowed_chars:
       removed_chars.append(char)
       repo_url = repo_url.replace(char, "")
 
+    # If disallowed characters were found, report them to the user
     if len(removed_chars) > 0:
       sanitized_repo_url_messages.append("Removed invalid characters" + str(removed_chars))
 
-    # Verify the repo exists and is public
-    response = requests.get(
-      url=f"https://{repo_url}"
-    )
+    
+    # Verify the repo exists, and is public
+    # Only on valid public code hosts, to avoid users using this guess and check for hostname resolution on our internal network
+    valid_code_hosts = [
+      "github.com",
+    ]
 
-    if response.status_code == 200:
-      logger.debug(f"Validated repo exists: https://{repo_url}")
-      sanitized_repo_url_messages.append(f"Validated repo exists: https://{repo_url}")
-    else:
-      logger.error(f"Failed to validate repo exists: https://{repo_url}")
-      sanitized_repo_url_messages.append(f"Failed to validate repo exists: https://{repo_url}")
+    # Loop through the above array to find if any of them match (at most one should)
+    for valid_code_host in valid_code_hosts:
+    
+      # If there is a match
+      if repo_url.startswith(valid_code_host):
 
-  except Exception as e:
-    logger.exception(e)
+        # Try a get request for this repo_url
+        try:
+          response = requests.get(
+            url=f"https://{repo_url}"
+          )
+        except Exception as get_request_exception:
+          # We tried to get the repo from the matching code host, but that didn't go as expected
+          logger.exception(get_request_exception)
+
+        # Need to put more thought into what error states we could be in, and how we need to handle them
+        if response.status_code == 200:
+          logger.debug(f"Validated repo exists: https://{repo_url}")
+          sanitized_repo_url_messages.append(f"Validated repo exists: https://{repo_url}")
+        else:
+          logger.error(f"Failed to validate repo exists: https://{repo_url}")
+          sanitized_repo_url_messages.append(f"Failed to validate repo exists: https://{repo_url}")
+
+  except Exception as sanitize_repo_url_exception:
+
+    exception_message=f"Failed to sanitize repo_url. \n Started with {initial_repo_url} \n Ended with {repo_url} \n Exception: {sanitize_repo_url_exception}"
+    logger.exception(exception_message)
+    sanitized_repo_url_messages.append(exception_message)
 
   return repo_url, sanitized_repo_url_messages
 
