@@ -34,7 +34,7 @@ def configure_logging():
     logLevel = os.environ.get("LOGLEVEL")
 
   else:
-    # Otherweise assume info
+    # Otherwise assume info
     logLevel = "INFO"
 
   # Get the existing logger
@@ -236,7 +236,7 @@ def send_graphql_request(sanitized_repo_url, sg_server_api):
 
   else:
 
-    logger.error(f"GraphQL query conntection failed: {response.status_code} {response.text}")
+    logger.error(f"GraphQL query connection failed: {response.status_code} {response.text}")
     success = False,
 
   return success, message
