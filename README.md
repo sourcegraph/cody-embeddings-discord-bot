@@ -13,6 +13,8 @@ This `discordbot.py` script does the following:
 
 Retrieve [Discord dev_cody_embeddings_bot token from 1Password](https://start.1password.com/open/i?a=HEDEDSLHPBFGRBTKAKJWE23XX4&v=dnrhbauihkhjs5ag6vszsme45a&i=7v7petpsowuvd7iwl6xhfg34ey&h=my.1password.com)
 
+See the [cody-embeddings-test channel](https://discord.com/channels/969688426372825169/1126274921820074096) to interact with the bot while running locally
+
 ```bash
 # Install dependencies
 pip install -r requirements.txt

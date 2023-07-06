@@ -11,12 +11,19 @@
 
 # TODO: Sort out where the asyncio timeout exception needs to go
 
+# Docs:
+# We're actually using the pycord interface
+# We have Cody embeddings for it :)
+# https://sourcegraph.com/github.com/Pycord-Development/pycord
+
+# General information about Discord's Python interface
+# https://discordpy.readthedocs.io/en/latest/interactions/api.html
 
 from aiohttp                import web
 from config                 import SG_TOKEN, DISCORD_TOKEN
 from discord.ext.commands   import Bot
 import asyncio
-import discord              # https://discordpy.readthedocs.io/en/latest/interactions/api.html
+import discord
 import json
 import logging
 import os
