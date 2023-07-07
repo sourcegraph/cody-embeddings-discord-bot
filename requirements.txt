@@ -1,5 +1,9 @@
-aiohttp
+aiohttp==3.8.4
+discord.py==2.3.1
+Requests==2.31.0
+validators==0.20.0
+
+# pipreq removed these, not sure if we still need them?
 asyncio
 py-cord==2.4.1
-requests
 urllib3==1.26.5
