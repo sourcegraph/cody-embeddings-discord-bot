@@ -1,21 +1,24 @@
-# TODO: Improve error handling when checking to validate a repo exists, when the code host is missing or malformed
+# TODO: If repo does exist, check if it's on Sourcegraph.com, or if there's a way to add it to the code host config too
+# TODO: Find a GraphQL query that can check Sourcegraph for configured repo path patterns / code host names, so repo embeddings can be requested for newly added code hosts without having to update this list code_hostnames_on_dotcom
+# TODO: Add server URL validation to get_sourcegraph_server_addresses
 # TODO: If the SG_SERVER is invalid, don't send the GraphQL request
+# TODO: Improve error handling for GraphQL timeouts, provide the user with feedback
+# TODO: Change default log level to WARNING after this has been running in prod for a while to reduce log spam
 
-# TODO: GraphQL query for embeddingExists every 5 minutes, then tag the user that their embedding is ready
-# TODO: Check when the embeddings job is completed
+# TODO: GraphQL query for embeddingExists every 1 minute to check if the embeddings job completed
 # TODO: Check the completed embeddings job for errors
+# TODO: Then tag the user in the thread when their embedding is ready
 # Interaction tokens are valid for 15 minutes, meaning you can respond to an interaction within that amount of time.
 # https://discord.com/developers/docs/interactions/receiving-and-responding#followup-messages
 
-# TODO: Build a button the user can press to check status (completion vs errors)
-# TODO: Build a button the user can press to retry
+# TODO: Build a button the user can press to retry if there's an error
 # https://discord.com/developers/docs/interactions/message-components
 
 # TODO: Sort out where the asyncio timeout exception needs to go
 
 # Docs:
-# We're actually using the pycord interface
-# We have Cody embeddings for it :)
+# Are we actually using the pycord interface?
+# We have Cody embeddings for it
 # https://sourcegraph.com/github.com/Pycord-Development/pycord
 
 # General information about Discord's Python interface
@@ -154,7 +157,6 @@ async def sanitize_repo_url(repo_url):
                 parsed_hostname = parsed_hostname.replace(sub_string, "")
 
         # We don't need to accept all valid hostnames, only hostnames that match our code host config repo patterns on dotcom
-        # TODO: Find a GraphQL query that can check Sourcegraph for configured repo path patterns / code host names, so repo embeddings can be requested for newly added code hosts without having to update this list
         code_hostnames_on_dotcom = [
             "git.eclipse.org",
             "git.savannah.gnu.org",
@@ -200,7 +202,7 @@ async def sanitize_repo_url(repo_url):
             )
             parsed_path = parsed_path.replace(file_extension_match, "")
 
-        # Check if the repo path is a valid string?
+        # TODO: Validate the repo path is a valid string?
 
         # Set the repo_url to only the hostname and path, to clean out a bunch of possible junk
         repo_url = parsed_hostname + parsed_path
@@ -218,32 +220,32 @@ async def sanitize_repo_url(repo_url):
 
         # Verify the repo exists, and is public
         # Only on valid public code hosts, to avoid users using this guess and check for hostname resolution on our internal network
-        # This security check was completed earlier with "if parsed_hostname not in code_hostnames_on_dotcom:""
+        # This security check was completed earlier with "if parsed_hostname not in code_hostnames_on_dotcom:"
         # Try a get request for this repo_url
         try:
-            response = requests.get(url=f"https://{repo_url}")
+            response = requests.get(url_scheme + repo_url)
         except Exception as get_request_exception:
             # We tried to get the repo from the matching code host, but that didn't go as expected
             logging.exception(get_request_exception)
 
         # Need to put more thought into what error states we could be in, and how we need to handle them
         if response.status_code == 200:
-            message_to_user = f"Repo exists: https://{repo_url}"
+            message_to_user = "Repo exists: " + url_scheme + repo_url
             logging.debug(message_to_user)
             input_validation_messages_to_user.append(message_to_user)
         else:
-            message_to_user = f"Could not validate if repo exists: https://{repo_url}"
+            message_to_user = "Could not validate if repo exists: " + url_scheme + repo_url
             logging.error(message_to_user)
             input_validation_messages_to_user.append(message_to_user)
 
-        # If repo does exist, check if it's on Sourcegraph.com, or if there's a way to add it to the code host config too
+        # TODO: If repo does exist, check if it's on Sourcegraph.com, or if there's a way to add it to the code host config too
 
     except Exception as exception:
         error_string = (
             "Failed to sanitize repo_url."
-            + f"\n Started with {initial_repo_url}"
-            + f"\n Ended with {repo_url}"
-            + f"\n Exception: {exception}"
+            + "\n Started with: " + initial_repo_url
+            + "\n Ended with: " + repo_url
+            + "\n Exception: " + exception
         )
         input_validation_messages_to_user.append(error_string)
         exception.add_note(error_string)
