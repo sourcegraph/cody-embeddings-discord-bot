@@ -321,7 +321,7 @@ async def send_graphql_request(sanitized_repo_url, sg_server_api):
     if response.status_code == 200:
         logging.debug(
             "GraphQL query connection succeeded: "
-            + response.status_code
+            + str(response.status_code)
             + response.text
         )
         success = True
@@ -343,7 +343,7 @@ async def send_graphql_request(sanitized_repo_url, sg_server_api):
     else:
         logging.error(
             "GraphQL query connection failed: "
-            + response.status_code
+            + str(response.status_code)
             + response.text
         )
         success = False
@@ -468,7 +468,7 @@ To check if they're completed:
             content=str(
                 "❌ Error occurred: "
                 + exception
-            )
+            ),
             suppress=True,
         )
 
