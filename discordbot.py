@@ -39,7 +39,6 @@ import validators                               # https://validators.readthedocs
 
 # Configure logging
 def configure_logging():
-
     # Get the log level if it's defined in the env vars
     if "LOGLEVEL" in os.environ:
         log_level = os.environ.get("LOGLEVEL")
@@ -51,11 +50,11 @@ def configure_logging():
     logging_handlers = logging.StreamHandler(sys.stdout), logging.FileHandler("discordbot.log")
 
     logging.basicConfig(
-            datefmt='%Y-%m-%d %H:%M:%S',
-            encoding='utf-8',
-            format='%(asctime)s: %(levelname)s: %(message)s',
-            handlers=logging_handlers,
-            level=log_level
+        datefmt="%Y-%m-%d %H:%M:%S",
+        encoding="utf-8",
+        format="%(asctime)s: %(levelname)s: %(message)s",
+        handlers=logging_handlers,
+        level=log_level,
     )
 
 
@@ -63,7 +62,6 @@ def configure_logging():
 # The order of these operations is significant
 # This needs to happen on the client side, because the GraphQL API rejects invalid repo_urls instead of sanitizing them
 async def sanitize_repo_url(repo_url):
-
     # Keep a copy of the repo_url the user gave us
     initial_repo_url = repo_url
 
@@ -74,7 +72,6 @@ async def sanitize_repo_url(repo_url):
     url_scheme = "https://"
 
     try:
-
         # Format required by embeddings scheduler
         # github.com/org/repo
 
@@ -102,7 +99,10 @@ async def sanitize_repo_url(repo_url):
 
         # If disallowed characters were found, report them to the user
         if len(removed_chars_string) > 0:
-            input_validation_messages_to_user.append("Removed invalid characters: " + removed_chars_string)
+            input_validation_messages_to_user.append(
+                "Removed invalid characters: "
+                + removed_chars_string
+            )
 
         # Convert to lowercase
         # Don't need to warn the user about case
@@ -123,23 +123,20 @@ async def sanitize_repo_url(repo_url):
             parsed_path                 = str(parsed_repo_url_namedtuple.path)
 
         except Exception as exception:
-
             error_string = "urlparse failed."
             exception.add_note(error_string)
             raise
 
         # Log the parsed hostname and path
-        logging.info("parsed_hostname: " + parsed_hostname )
-        logging.info("parsed_path:     " + parsed_path     )
+        logging.info("parsed_hostname: " + parsed_hostname)
+        logging.info("parsed_path:     " + parsed_path)
 
         # Check if the hostname is valid
         is_hostname_valid = validators.domain(parsed_hostname)
         if is_hostname_valid:
-
             logging.info("parsed_hostname is valid")
 
         else:
-
             error_string = "Unsupported hostname provided: " + str(is_hostname_valid)
             logging.exception(error_string)
             input_validation_messages_to_user.append(error_string)
@@ -167,7 +164,10 @@ async def sanitize_repo_url(repo_url):
         ]
 
         if parsed_hostname not in code_hostnames_on_dotcom:
-            error_string = "Code host not configured on Sourcegraph instance: " + parsed_hostname
+            error_string = (
+                "Code host not configured on Sourcegraph instance: "
+                + parsed_hostname
+            )
             logging.exception(error_string)
             input_validation_messages_to_user.append(error_string)
             return None, input_validation_messages_to_user
@@ -180,63 +180,71 @@ async def sanitize_repo_url(repo_url):
         regex_filter_for_git_refs = r"@[\w\d\./_-]*$"
         git_ref_matches = regex.findall(regex_filter_for_git_refs, parsed_path)
         for git_ref_match in git_ref_matches:
-            input_validation_messages_to_user.append("Removed rev: " + git_ref_match + ", only the HEAD revision of the default branch is supported for embeddings at this time.")
-            parsed_path = parsed_path.replace(git_ref_match,"")
+            input_validation_messages_to_user.append(
+                "Removed rev: "
+                + git_ref_match
+                + ", only the HEAD revision of the default branch is supported for embeddings at this time."
+            )
+            parsed_path = parsed_path.replace(git_ref_match, "")
 
         # Remove file type extension if present
         regex_filter_for_file_extension = r"\.\w*$"
-        file_extension_matches = regex.findall(regex_filter_for_file_extension, parsed_path)
+        file_extension_matches = regex.findall(
+            regex_filter_for_file_extension,
+            parsed_path,
+        )
         for file_extension_match in file_extension_matches:
-            input_validation_messages_to_user.append("Removed file type extension: " + file_extension_match)
-            parsed_path = parsed_path.replace(file_extension_match,"")
-
+            input_validation_messages_to_user.append(
+                "Removed file type extension: "
+                + file_extension_match
+            )
+            parsed_path = parsed_path.replace(file_extension_match, "")
 
         # Check if the repo path is a valid string?
-
 
         # Set the repo_url to only the hostname and path, to clean out a bunch of possible junk
         repo_url = parsed_hostname + parsed_path
 
         # Check if the URL is valid and publicly accessible
-        is_url_valid_and_public = validators.url(url_scheme + repo_url, public = True)
+        is_url_valid_and_public = validators.url(url_scheme + repo_url, public=True)
         if is_url_valid_and_public:
-
             logging.info("URL is valid and public")
 
         else:
-
             error_string = "URL is not valid or public: " + str(is_url_valid_and_public)
             logging.exception(error_string)
             input_validation_messages_to_user.append(error_string)
             return None, input_validation_messages_to_user
-
 
         # Verify the repo exists, and is public
         # Only on valid public code hosts, to avoid users using this guess and check for hostname resolution on our internal network
         # This security check was completed earlier with "if parsed_hostname not in code_hostnames_on_dotcom:""
         # Try a get request for this repo_url
         try:
-            response = requests.get(
-                url=f"https://{repo_url}"
-            )
+            response = requests.get(url=f"https://{repo_url}")
         except Exception as get_request_exception:
             # We tried to get the repo from the matching code host, but that didn't go as expected
             logging.exception(get_request_exception)
 
         # Need to put more thought into what error states we could be in, and how we need to handle them
         if response.status_code == 200:
-            logging.debug(f"Repo exists: https://{repo_url}")
-            input_validation_messages_to_user.append(f"Repo exists: https://{repo_url}")
+            message_to_user = f"Repo exists: https://{repo_url}"
+            logging.debug(message_to_user)
+            input_validation_messages_to_user.append(message_to_user)
         else:
-            logging.error(f"Could not validate if repo exists: https://{repo_url}")
-            input_validation_messages_to_user.append(f"Could not validate if repo exists: https://{repo_url}")
-
+            message_to_user = f"Could not validate if repo exists: https://{repo_url}"
+            logging.error(message_to_user)
+            input_validation_messages_to_user.append(message_to_user)
 
         # If repo does exist, check if it's on Sourcegraph.com, or if there's a way to add it to the code host config too
 
     except Exception as exception:
-
-        error_string = f"Failed to sanitize repo_url. \n Started with {initial_repo_url} \n Ended with {repo_url} \n Exception: {exception}"
+        error_string = (
+            "Failed to sanitize repo_url."
+            + f"\n Started with {initial_repo_url}"
+            + f"\n Ended with {repo_url}"
+            + f"\n Exception: {exception}"
+        )
         input_validation_messages_to_user.append(error_string)
         exception.add_note(error_string)
         raise
@@ -246,7 +254,6 @@ async def sanitize_repo_url(repo_url):
 
 # Determine Sourcegraph server URL, dotcom by default
 async def get_sourcegraph_server_addresses():
-
     # Start with a default of dotcom
     sg_server = "sourcegraph.com"
 
@@ -256,21 +263,21 @@ async def get_sourcegraph_server_addresses():
 
     # If it's provided with http, replace it with https://
     if "http://" in sg_server:
-        sg_server.replace("http://","https://")
+        sg_server.replace("http://", "https://")
 
     # If it doesn't have https, prepend it
     if "https://" not in sg_server:
-        sg_server = "".join(["https://",sg_server])
+        sg_server = "".join(["https://", sg_server])
 
     # If it has .api/graphql, remove it
     if ".api/graphql" in sg_server:
-        sg_server.replace(".api/graphql","")
+        sg_server.replace(".api/graphql", "")
 
     # If it ends with a trailing slash or two, remove it
     sg_server = sg_server.rstrip("/")
 
     # Append the /.api/graphql endpoint to the sg_server, to get the sg_server_api
-    sg_server_api = "".join([sg_server,"/.api/graphql"])
+    sg_server_api = "".join([sg_server, "/.api/graphql"])
 
     # Return both values
     return sg_server, sg_server_api
@@ -278,65 +285,68 @@ async def get_sourcegraph_server_addresses():
 
 # Send the GraphQL API mutation to the Sourcegraph instance
 async def send_graphql_request(sanitized_repo_url, sg_server_api):
-
     message = ""
     success = False
 
     queryBody = f"""
-    mutation {{
-        scheduleRepositoriesForEmbedding(
-            repoNames: [
-        "{sanitized_repo_url}"
-            ]
-        ) {{
-            alwaysNil
-       }}
-    }}
+        mutation {{
+            scheduleRepositoriesForEmbedding(
+                repoNames: [
+            "{sanitized_repo_url}"
+                ]
+            ) {{
+                alwaysNil
+            }}
+        }}
     """
 
     # Try / except block for GraphQL mutation
     try:
-
         # Post the query to the API endpoint
         response = requests.post(
             url=sg_server_api,
             json={"query": queryBody},
-            headers={"Authorization": f"token {SG_TOKEN}"}
+            headers={"Authorization": f"token {SG_TOKEN}"},
         )
 
     except asyncio.TimeoutError as e:
-
         logging.error(f"GraphQL query timed out: {e}")
         message = "⚠️ Timed out submitting embeddings job to the Sourcegraph server, please try again!"
         success = False
 
     except Exception as e:
-
         logging.error(f"GraphQL query failed: {e} {response}")
         success = False
 
     if response.status_code == 200:
-
-        logging.debug(f"GraphQL query connection succeeded: {response.status_code} {response.text}")
+        logging.debug(
+            "GraphQL query connection succeeded: "
+            + response.status_code
+            + response.text
+        )
         success = True
-        responseJson = json.loads(response.text)
+        response_json = json.loads(response.text)
 
-        if responseJson.get("errors"):
+        if response_json.get("errors"):
             logging.error(f"GraphQL query returned errors: {response.text}")
-            success = False,
-            errors = responseJson.get("errors")
+            success = False
+            errors = response_json.get("errors")
             message = errors
 
             if "repo not found" in response.text:
+                # There should only be one message, but GraphQL returns it in an array
                 messages = []
                 for error in errors:
                     messages.append(error.get("message"))
                 message = "\n".join(messages)
 
     else:
-
-        logging.error(f"GraphQL query connection failed: {response.status_code} {response.text}")
-        success = False,
+        logging.error(
+            "GraphQL query connection failed: "
+            + response.status_code
+            + response.text
+        )
+        success = False
 
     return success, message
 
@@ -346,25 +356,29 @@ intents = discord.Intents.default()
 intents.messages = True
 bot = Bot(command_prefix="embeddings", intents=intents)
 
+
 # Define the event handler for when the slash_command is received
 @bot.slash_command(description="Request Cody embeddings for a repo")
-@discord.option(name="repo_url", description="Enter the public repo in the format: github.com/org/repo")
+@discord.option(
+    name="repo_url",
+    description="Enter the public repo in the format: github.com/org/repo",
+)
 async def embedding(ctx: discord.ApplicationContext, repo_url: str):
-
     error_state = False
 
     # Try / except block for Discord bot messages
     try:
-
         # Acknowledge the command, to avoid showing an error to the user, "The application did not respond"
         await ctx.send_response(
             content="Received /embedding command, creating new thread in this channel, and deleting this message.",
-            ephemeral=True, # Only show this message to this user, which provides them a button to delete this message
-            delete_after=3600 # Auto delete this message after x seconds
+            ephemeral=True,  # Only show this message to this user, which provides them a button to delete this message
+            delete_after=3600,  # Auto delete this message after x seconds
         )
 
         # Sanitize the repo URL before responding to the Discord user, so the user can visually validate the sanitized repo URL is valid, and tag us for support if not
-        sanitized_repo_url, input_validation_messages_to_user = await sanitize_repo_url(repo_url)
+        sanitized_repo_url, input_validation_messages_to_user = await sanitize_repo_url(
+            repo_url
+        )
         if sanitized_repo_url is None:
             thread_name = repo_url
             error_state = True
@@ -373,50 +387,56 @@ async def embedding(ctx: discord.ApplicationContext, repo_url: str):
 
         # Create the thread to reply in
         thread = await ctx.interaction.channel.create_thread(
-                name=thread_name,
-                auto_archive_duration=60, # Auto archive this thread after x minutes
-                type=discord.ChannelType.public_thread
+            name=thread_name,
+            auto_archive_duration=60,  # Auto archive this thread after x minutes
+            type=discord.ChannelType.public_thread,
         )
 
         # Send the initial message
-        await thread.send(f"{ctx.author.mention} requested embeddings for: \n {repo_url}")
+        await thread.send(
+            ctx.author.mention
+            + "requested embeddings for: \n"
+            + repo_url
+        )
 
         # If the sanitization returned input_validation_messages_to_user, then respond to the user with them
         if len(input_validation_messages_to_user) > 0:
-
             input_validation_messages_to_user_string = "Input validation:"
 
             for input_validation_message in input_validation_messages_to_user:
-
-                input_validation_messages_to_user_string += str("\n- " + input_validation_message)
+                input_validation_messages_to_user_string += str(
+                    "\n- " + input_validation_message
+                )
 
             await thread.send(
                 content=input_validation_messages_to_user_string,
-                suppress=True
+                suppress=True,
             )
 
         # If we're in an error state, then end the processing here
         # TODO: Add a terminating error message
         if error_state:
             await thread.send(
-                content="❌ Terminating request"
+                content="❌ Terminating request",
             )
             return
 
         # Respond to the user's command
         await thread.send(
             content=f"Submitting {sanitized_repo_url} for embeddings on Sourcegraph.com",
-            suppress=True
+            suppress=True,
         )
 
         # Get the Sourcegraph server and GraphQL api endpoints
         sg_server, sg_server_api = await get_sourcegraph_server_addresses()
 
         # Get the return value and respond to the user
-        graphqlSendSuccess, message = await send_graphql_request(sanitized_repo_url, sg_server_api)
+        graphqlSendSuccess, message = await send_graphql_request(
+            sanitized_repo_url,
+            sg_server_api,
+        )
 
         if graphqlSendSuccess == True:
-
             # Send a message back to the channel if the GraphQL mutation was successful
             response_to_user = f"""
 ✅ Embeddings are processing!
@@ -429,22 +449,27 @@ To check if they're completed:
 """
             await thread.send(
                 content=response_to_user,
-                suppress=True
+                suppress=True,
             )
 
         else:
-
             # Send a message back to the channel if the GraphQL mutation was not successful, show an error to the user
             await thread.send(
-                content=f"❌ Error submitting embeddings job to the Sourcegraph server: {message}",
-                suppress=True
+                content=str(
+                "❌ Error submitting embeddings job to the Sourcegraph server: "
+                + message
+                ),
+                suppress=True,
             )
 
-    except Exception as e:
-        logging.exception(e)
+    except Exception as exception:
+        logging.exception(exception)
         await thread.send(
-            content=f"❌ Error occurred: {e}",
-            suppress=True
+            content=str(
+                "❌ Error occurred: "
+                + exception
+            )
+            suppress=True,
         )
 
 
