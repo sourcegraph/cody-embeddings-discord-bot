@@ -3,6 +3,9 @@
 # TODO: Add server URL validation to get_sourcegraph_server_addresses
 # TODO: If the SG_SERVER is invalid, don't send the GraphQL request
 # TODO: Improve error handling for GraphQL timeouts, provide the user with feedback
+# TODO: Sanitize file path, so if a user submits https://github.com/marcleblanc2/cody-embeddings-discord-bot/blob/main/discordbot.py, we can find what repo it's in
+# TODO: Find URL syntax for git.eclipse.org and git.savannah.gnu.org, how to parse them to extract the repo path, and match it to the path on Sourcegraph
+
 # TODO: Change default log level to WARNING after this has been running in prod for a while to reduce log spam
 
 # TODO: GraphQL query for embeddingExists every 1 minute to check if the embeddings job completed
@@ -155,14 +158,12 @@ async def sanitize_repo_url(repo_url):
             if sub_string in parsed_hostname:
                 input_validation_messages_to_user.append("Removed: " + sub_string)
                 parsed_hostname = parsed_hostname.replace(sub_string, "")
-
         # We don't need to accept all valid hostnames, only hostnames that match our code host config repo patterns on dotcom
         code_hostnames_on_dotcom = [
             "git.eclipse.org",
             "git.savannah.gnu.org",
-            "git.savannah.gnu.org",
-            "github.com",
-            "gitlab.com",
+            "github.com", # Tested
+            "gitlab.com", # Tested
         ]
 
         if parsed_hostname not in code_hostnames_on_dotcom:
@@ -173,6 +174,20 @@ async def sanitize_repo_url(repo_url):
             logging.exception(error_string)
             input_validation_messages_to_user.append(error_string)
             return None, input_validation_messages_to_user
+
+        # Remove file path in repo if present
+        regex_filter_for_file_path = r"(/-/.*|/blob/.*)$"
+        file_path_matches = regex.findall(
+            regex_filter_for_file_path,
+            parsed_path,
+        )
+        logging.warning(file_path_matches)
+        for file_path_match in file_path_matches:
+            input_validation_messages_to_user.append(
+                "Removed file path: "
+                + file_path_match
+            )
+            parsed_path = parsed_path.replace(file_path_match, "")
 
         # Remove @[ref] if present
         # Branch name, tag name, or commit hash
@@ -196,13 +211,13 @@ async def sanitize_repo_url(repo_url):
             parsed_path,
         )
         for file_extension_match in file_extension_matches:
-            input_validation_messages_to_user.append(
-                "Removed file type extension: "
-                + file_extension_match
-            )
+            if file_extension_match != ".git":
+                input_validation_messages_to_user.append(
+                    "Removed file type extension: "
+                    + file_extension_match
+                )
             parsed_path = parsed_path.replace(file_extension_match, "")
-
-        # TODO: Validate the repo path is a valid string?
+        # TODO: Validate the repo path is a valid org/repo?
 
         # Set the repo_url to only the hostname and path, to clean out a bunch of possible junk
         repo_url = parsed_hostname + parsed_path
@@ -286,7 +301,7 @@ async def get_sourcegraph_server_addresses():
 
 # Send the GraphQL API mutation to the Sourcegraph instance
 async def send_graphql_request(sanitized_repo_url, sg_server_api):
-    message = ""
+    graphql_response_message = ""
     success = False
 
     queryBody = f"""
@@ -312,7 +327,7 @@ async def send_graphql_request(sanitized_repo_url, sg_server_api):
 
     except asyncio.TimeoutError as exception:
         logging.error(f"GraphQL query timed out: {exception}")
-        message = "⚠️ Timed out submitting embeddings job to the Sourcegraph server, please try again!"
+        graphql_response_message = "⚠️ Timed out submitting embeddings job to the Sourcegraph server, please try again!"
         success = False
 
     except Exception as exception:
@@ -332,14 +347,14 @@ async def send_graphql_request(sanitized_repo_url, sg_server_api):
             logging.error(f"GraphQL query returned errors: {response.text}")
             success = False
             errors = response_json.get("errors")
-            message = errors
+            graphql_response_message = errors
 
             if "repo not found" in response.text:
                 # There should only be one message, but GraphQL returns it in an array
                 messages = []
                 for error in errors:
                     messages.append(error.get("message"))
-                message = "\n".join(messages)
+                graphql_response_message = "\n".join(messages)
 
     else:
         logging.error(
@@ -349,7 +364,7 @@ async def send_graphql_request(sanitized_repo_url, sg_server_api):
         )
         success = False
 
-    return success, message
+    return success, graphql_response_message
 
 
 # Configure and create an instance of the Discord bot
@@ -376,6 +391,9 @@ async def embedding(ctx: discord.ApplicationContext, repo_url: str):
             delete_after=3600,  # Auto delete this message after x seconds
         )
 
+        # Get the Sourcegraph server and GraphQL api endpoints
+        sg_server, sg_server_api = await get_sourcegraph_server_addresses()
+
         # Sanitize the repo URL before responding to the Discord user, so the user can visually validate the sanitized repo URL is valid, and tag us for support if not
         sanitized_repo_url, input_validation_messages_to_user = await sanitize_repo_url(
             repo_url
@@ -395,9 +413,11 @@ async def embedding(ctx: discord.ApplicationContext, repo_url: str):
 
         # Send the initial message
         await thread.send(
-            ctx.author.mention
-            + "requested embeddings for: \n"
-            + repo_url,
+            content=(
+                ctx.author.mention
+                + "requested embeddings for \n"
+                + repo_url
+            ),
             suppress=True,
         )
 
@@ -426,20 +446,22 @@ async def embedding(ctx: discord.ApplicationContext, repo_url: str):
 
         # Respond to the user's command
         await thread.send(
-            content=f"Submitting {sanitized_repo_url} for embeddings on Sourcegraph.com",
+            content=(
+                "Submitting embeddings request for \n"
+                + sanitized_repo_url
+                + "\nto Sourcegraph instance \n"
+                + sg_server
+            ),
             suppress=True,
         )
 
-        # Get the Sourcegraph server and GraphQL api endpoints
-        sg_server, sg_server_api = await get_sourcegraph_server_addresses()
-
         # Get the return value and respond to the user
-        graphqlSendSuccess, message = await send_graphql_request(
+        graphql_send_success, graphql_response_message = await send_graphql_request(
             sanitized_repo_url,
             sg_server_api,
         )
 
-        if graphqlSendSuccess == True:
+        if graphql_send_success == True:
             # Send a message back to the channel if the GraphQL mutation was successful
             response_to_user = f"""
 ✅ Embeddings are processing!
@@ -448,6 +470,11 @@ To check if the embeddings are completed and ready to use:
 1. Go to your repo on Sourcegraph {sg_server + "/" + sanitized_repo_url}
 2. Click the Ask Cody button, near the top right
 3. Check the Chat Context menu in the bottom left corner of the Ask Cody chat pane, for a checkmark (ready) or an X (not ready yet)
+4. If your Cody IDE extension doesn't show the embeddings are ready, try:
+ 1. Ensure you're logged in to your Cody extension via {sg_server}
+ 2. Reload your IDE window
+ 3. Ensure the output of `git remote get-url origin` matches the repo name you submitted for embeddings
+ 4. For best results, open a new IDE workspace at the root directory of the repo, and ensure `cody.codebase` is not in your workspace or user settings
 """
             await thread.send(
                 content=response_to_user,
@@ -457,9 +484,9 @@ To check if the embeddings are completed and ready to use:
         else:
             # Send a message back to the channel if the GraphQL mutation was not successful, show an error to the user
             await thread.send(
-                content=str(
-                "❌ Error submitting embeddings job to the Sourcegraph server: "
-                + message
+                content=(
+                    "❌ Error submitting embeddings job to the Sourcegraph server: "
+                    + graphql_response_message
                 ),
                 suppress=True,
             )
@@ -467,7 +494,7 @@ To check if the embeddings are completed and ready to use:
     except Exception as exception:
         logging.exception(exception)
         await thread.send(
-            content=str(
+            content=(
                 "❌ Error occurred: "
                 + exception
             ),
