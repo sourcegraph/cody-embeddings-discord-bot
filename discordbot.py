@@ -1,4 +1,4 @@
-# TODO: If repo does exist, check if it's on Sourcegraph.com, or if there's a way to add it to the code host config too
+# TODO: If repo does exist on the code host, check if it exists on the Sourcegraph instance, or if there's a GraphQL query to add it to the code host config on Sourcegraph
 # TODO: Find a GraphQL query that can check Sourcegraph for configured repo path patterns / code host names, so repo embeddings can be requested for newly added code hosts without having to update this list code_hostnames_on_dotcom
 # TODO: Add server URL validation to get_sourcegraph_server_addresses
 # TODO: If the SG_SERVER is invalid, don't send the GraphQL request
@@ -232,7 +232,6 @@ async def sanitize_repo_url(repo_url):
         if response.status_code == 200:
             message_to_user = "Repo exists: " + url_scheme + repo_url
             logging.debug(message_to_user)
-            input_validation_messages_to_user.append(message_to_user)
         else:
             message_to_user = "Could not validate if repo exists: " + url_scheme + repo_url
             logging.error(message_to_user)
@@ -311,13 +310,13 @@ async def send_graphql_request(sanitized_repo_url, sg_server_api):
             headers={"Authorization": f"token {SG_TOKEN}"},
         )
 
-    except asyncio.TimeoutError as e:
-        logging.error(f"GraphQL query timed out: {e}")
+    except asyncio.TimeoutError as exception:
+        logging.error(f"GraphQL query timed out: {exception}")
         message = "⚠️ Timed out submitting embeddings job to the Sourcegraph server, please try again!"
         success = False
 
-    except Exception as e:
-        logging.error(f"GraphQL query failed: {e} {response}")
+    except Exception as exception:
+        logging.error(f"GraphQL query failed: {exception} {response}")
         success = False
 
     if response.status_code == 200:
@@ -372,7 +371,7 @@ async def embedding(ctx: discord.ApplicationContext, repo_url: str):
     try:
         # Acknowledge the command, to avoid showing an error to the user, "The application did not respond"
         await ctx.send_response(
-            content="Received /embedding command, creating new thread in this channel, and deleting this message.",
+            content="Received `/embedding` command, creating new thread in this channel, and deleting this message.",
             ephemeral=True,  # Only show this message to this user, which provides them a button to delete this message
             delete_after=3600,  # Auto delete this message after x seconds
         )
@@ -398,7 +397,8 @@ async def embedding(ctx: discord.ApplicationContext, repo_url: str):
         await thread.send(
             ctx.author.mention
             + "requested embeddings for: \n"
-            + repo_url
+            + repo_url,
+            suppress=True,
         )
 
         # If the sanitization returned input_validation_messages_to_user, then respond to the user with them
@@ -420,6 +420,7 @@ async def embedding(ctx: discord.ApplicationContext, repo_url: str):
         if error_state:
             await thread.send(
                 content="❌ Terminating request",
+                suppress=True,
             )
             return
 
@@ -442,12 +443,11 @@ async def embedding(ctx: discord.ApplicationContext, repo_url: str):
             # Send a message back to the channel if the GraphQL mutation was successful
             response_to_user = f"""
 ✅ Embeddings are processing!
-Embeddings are usually available within ~30 minutes, depending on the size of the repo.
-To check if they're completed:
+Embeddings are usually available within 30 minutes, depending on the size of the repo.
+To check if the embeddings are completed and ready to use:
 1. Go to your repo on Sourcegraph {sg_server + "/" + sanitized_repo_url}
-2. Log in with your GitHub.com account
-3. Click on the Ask Cody button near the top right
-4. Check the Chat Context menu in the bottom left corner of the chat pane for a checkmark or X
+2. Click the Ask Cody button, near the top right
+3. Check the Chat Context menu in the bottom left corner of the Ask Cody chat pane, for a checkmark (ready) or an X (not ready yet)
 """
             await thread.send(
                 content=response_to_user,
