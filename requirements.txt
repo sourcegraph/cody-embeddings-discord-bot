@@ -1,5 +1,5 @@
 aiohttp==3.8.4
-discord.py==2.3.1
+#discord.py==2.3.1
 Requests==2.31.0
 validators==0.20.0
 
