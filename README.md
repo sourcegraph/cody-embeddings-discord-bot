@@ -11,12 +11,32 @@ This `discordbot.py` script does the following:
 
 ## Testing Locally
 
+Retrieve [Discord dev_cody_embeddings_bot token from 1Password](https://start.1password.com/open/i?a=HEDEDSLHPBFGRBTKAKJWE23XX4&v=dnrhbauihkhjs5ag6vszsme45a&i=7v7petpsowuvd7iwl6xhfg34ey&h=my.1password.com)
+
+See the [cody-embeddings-test channel](https://discord.com/channels/969688426372825169/1126274921820074096) to interact with the bot while running locally
+
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
 # Run bot locally
-SG_TOKEN="SOURCEGRAPH_SITE_ADMIN_TOKEN" DISCORD_TOKEN="DISCORD_BOT_TOKEN" python discordbot.py
+SG_TOKEN="SOURCEGRAPH_SITE_ADMIN_TOKEN" DISCORD_TOKEN="DISCORD_BOT_TOKEN" python3 discordbot.py
+
+# Optional environment variables
+
+LOGLEVEL=DEBUG # Increases log output
+MODE=DEV # Changes log output formatting for human readability
+SG_SERVER="sourcegraph.com" # Can specify your own Sourcegraph server
+
+# To run the Docker image locally
+# Build the image
+docker build -t cody-embedding-discord-bot .
+
+# Run with env vars
+docker run \
+--env SG_TOKEN="Your Sourcegraph token" \
+--env DISCORD_TOKEN="The Discord token" \
+cody-embedding-discord-bot
 ```
 
 ## Updating the script
@@ -26,6 +46,9 @@ The Docker image is published to GCP Container Registry in the `cody-embeddings-
 ```bash
 # Build Docker image
 docker build -t cody-embedding-discord-bot .
+
+# If you're on an M1 / M2 mac
+docker buildx build --platform linux/amd64 .
 
 # Tag the image
 docker tag cody-embedding-discord-bot us-central1-docker.pkg.dev/cody-embeddings-discord-bot/cody-embeddings-discord-bot/cody-embedding-discord-bot
