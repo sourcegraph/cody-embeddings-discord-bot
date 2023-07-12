@@ -1,9 +1,5 @@
 aiohttp==3.8.4
-#discord.py==2.3.1
+py-cord==2.4.1 # Note pipreqs tries to overwrite this with discord.py
 Requests==2.31.0
-validators==0.20.0
-
-# pipreq removed these, not sure if we still need them?
-asyncio
-py-cord==2.4.1
 urllib3==1.26.5
+validators==0.20.0

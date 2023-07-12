@@ -1,4 +1,4 @@
-# Cody Embeddings Discord Bot 
+# Cody Embeddings Discord Bot
 
 The Cody Embeddings Discord Bot is an exciting new way to create code embeddings directly from Discord! This bot, written in Python, allows you to simply enter a GitHub repository URL in Discord and the bot will request an embedding for that repo from Sourcegraph.
 

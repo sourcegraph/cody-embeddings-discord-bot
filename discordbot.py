@@ -50,10 +50,29 @@ def configure_logging():
         log_level = os.environ.get("LOGLEVEL")
 
     else:
-        # Otherwise assume info
-        log_level = "INFO"
+        # Otherwise assume warning
+        log_level = "WARNING"
 
-    logging_handlers = logging.StreamHandler(sys.stdout), logging.FileHandler("discordbot.log")
+    # Get the deployment environment if it's defined in the env vars
+    if "DEPLOYMENT_ENVIRONMENT" in os.environ:
+        deployment_environment = os.environ.get("DEPLOYMENT_ENVIRONMENT")
+
+    else:
+        # Otherwise assume warning
+        deployment_environment = "PROD"
+
+    if deployment_environment == "PROD":
+
+        logging_handlers = [
+            logging.StreamHandler(sys.stdout),
+        ]
+
+    else:
+
+        logging_handlers = [
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler("discordbot.log"),
+        ]
 
     logging.basicConfig(
         datefmt="%Y-%m-%d %H:%M:%S",
@@ -144,7 +163,7 @@ async def sanitize_repo_url(repo_url):
 
         else:
             error_string = "Unsupported hostname provided: " + str(is_hostname_valid)
-            logging.exception(error_string)
+            logging.error(error_string)
             input_validation_messages_to_user.append(error_string)
             return None, input_validation_messages_to_user
 
@@ -171,7 +190,7 @@ async def sanitize_repo_url(repo_url):
                 "Code host not configured on Sourcegraph instance: "
                 + parsed_hostname
             )
-            logging.exception(error_string)
+            logging.error(error_string)
             input_validation_messages_to_user.append(error_string)
             return None, input_validation_messages_to_user
 
@@ -181,7 +200,7 @@ async def sanitize_repo_url(repo_url):
             regex_filter_for_file_path,
             parsed_path,
         )
-        logging.warning(file_path_matches)
+        logging.info(file_path_matches)
         for file_path_match in file_path_matches:
             input_validation_messages_to_user.append(
                 "Removed file path: "
@@ -229,7 +248,7 @@ async def sanitize_repo_url(repo_url):
 
         else:
             error_string = "URL is not valid or public: " + str(is_url_valid_and_public)
-            logging.exception(error_string)
+            logging.error(error_string)
             input_validation_messages_to_user.append(error_string)
             return None, input_validation_messages_to_user
 
@@ -326,12 +345,12 @@ async def send_graphql_request(sanitized_repo_url, sg_server_api):
         )
 
     except asyncio.TimeoutError as exception:
-        logging.error(f"GraphQL query timed out: {exception}")
+        logging.exception(f"GraphQL query timed out: {exception}")
         graphql_response_message = "⚠️ Timed out submitting embeddings job to the Sourcegraph server, please try again!"
         success = False
 
     except Exception as exception:
-        logging.error(f"GraphQL query failed: {exception} {response}")
+        logging.exception(f"GraphQL query failed: {exception} {response}")
         success = False
 
     if response.status_code == 200:
